@@ -14,7 +14,7 @@ class TodoViewModel : ObservableObject {
     
     func loadTodos() async {
         do {
-            let todos = try await TodosApi.fetchTodos()
+            let todos = try await TodosApi.getSorted()
             self.todos = self.organizeHierarchy(todos)
         } catch {
             print("Faield to load todos: \(error)")

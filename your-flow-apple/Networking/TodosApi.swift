@@ -15,6 +15,12 @@ class TodosApi {
         return try JSONDecoder().decode([TodoItem].self, from: data)
     }
     
+    static func getSortedTodos(id: UUID) async throws -> [TodoItem] {
+        let url  = baseUrl.appendingPathComponent("sorted")
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return try JSONDecoder().decode(TodoItem.self, from: data)
+    }
+
     static func getTodo(id: UUID) async throws -> TodoItem {
         let url = baseUrl.appendingPathComponent(id.uuidString)
         let (data, _) = try await URLSession.shared.data(from: url)
