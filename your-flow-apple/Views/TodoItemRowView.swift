@@ -16,19 +16,31 @@ struct TodoItemRowView : View {
         VStack(alignment: .leading) {
             HStack {
                 Button(action: {
+                    print("toggled in \(todo.title)")
                     Task { await vm.toggleCompleted(todo) }
                 }) {
-                    Image(systemName: todo.isCompleted ? "checkmark.square" : "square")
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(todo.isCompleted ? Color.blue : Color.gray, lineWidth: 1.5)
+                            .frame(width: 28, height: 28)
+
+                        if todo.isCompleted {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.blue)
+                        }
+                    }
                 }
+                .buttonStyle(PlainButtonStyle())
                 
                 Text(todo.title)
                     .strikethrough(todo.isCompleted)
                     .fontWeight(todo.isCompleted ? .bold : .regular)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         showEdit = true
                     }
-                
-                Spacer()
             }
             .contextMenu {
                 Button("Add Subtodo") {
@@ -41,16 +53,11 @@ struct TodoItemRowView : View {
                     Task { await vm.deleteTodo(todo) }
                 }
             }
-            
-            if let children = todo.children {
-                ForEach(children, id: \.self) {
-                    child in TodoItemRowView(todo: child, vm: vm)
-                        .padding(.leading)
-                }
-            }
         }
         .sheet(isPresented: $showEdit) {
-            EditTodoView(todo: todo, vm: vm)
+            NavigationView {
+                EditTodoView(todo: todo, vm: vm)
+            }
         }
     }
 }

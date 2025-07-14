@@ -20,11 +20,21 @@ struct TodoListView : View {
                     }
                 }
                 
-                ForEach(vm.todos, id: \.self) {
-                    todo in TodoItemRowView(todo: todo, vm: vm)
+                ForEach(vm.todos.filter { $0.parentId == nil }) { parent in
+                    Section {
+                        TodoItemRowView(todo: parent, vm: vm)
+                        
+                        ForEach(vm.childrenFor(todo: parent)) { child in
+                            TodoItemRowView(todo: child, vm: vm)
+                                .padding(.leading, 30)
+                        }
+                    }
                 }
             }
             .navigationTitle("Todos")
+            .refreshable {
+                await vm.loadTodos()
+            }
         }
         .task {
             await vm.loadTodos()

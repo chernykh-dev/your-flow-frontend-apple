@@ -11,8 +11,8 @@ struct TodoItem : Identifiable, Codable, Hashable {
     var id: UUID
     var title: String
     var isCompleted: Bool
-    var description: String
-    var order: Double
+    var description: String?
+    var order: Double?
     var parentId: UUID?
     
     var children: [TodoItem]? = []

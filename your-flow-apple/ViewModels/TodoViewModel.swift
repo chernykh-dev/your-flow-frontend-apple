@@ -10,24 +10,19 @@ import Foundation
 @MainActor
 class TodoViewModel : ObservableObject {
     @Published var todos: [TodoItem] = []
+    @Published var flatTodos: [FlatTodoItem] = []
     @Published var newTitle: String = ""
     
     func loadTodos() async {
         do {
-            let todos = try await TodosApi.getSorted()
-            self.todos = self.organizeHierarchy(todos)
+            self.todos = try await TodosApi.getSortedTodos()
         } catch {
             print("Faield to load todos: \(error)")
         }
     }
     
-    func organizeHierarchy(_ todos: [TodoItem]) -> [TodoItem] {
-        var map = Dictionary(grouping: todos, by: { $0.parentId })
-        return map[nil]?.map { todo in
-            var t = todo
-            t.children = map[todo.id]
-            return t
-        } ?? []
+    func childrenFor(todo: TodoItem) -> [TodoItem] {
+        todos.filter { $0.parentId == todo.id }
     }
     
     func addTodo() async {
@@ -50,12 +45,66 @@ class TodoViewModel : ObservableObject {
         }
     }
 
+    func updateTodo(_ todo: TodoItem) async {
+        do {
+            try await TodosApi.updateTodo(todo)
+            await loadTodos()
+        } catch {
+            print("Update failed: \(error)")
+        }
+    }
+    
     func deleteTodo(_ todo: TodoItem) async {
         do {
             try await TodosApi.deleteTodo(id: todo.id)
             await loadTodos()
         } catch {
             print("Delete failed: \(error)")
+        }
+    }
+    
+    @MainActor
+    func buildFlatList() {
+        var result: [FlatTodoItem] = []
+        
+        func appendChildren(of parent: UUID?, level: Int) {
+            for todo in todos.filter({ $0.parentId == parent }) {
+                result.append(FlatTodoItem(todo: todo, id: todo.id, level: level))
+                appendChildren(of: todo.id, level: level + 1)
+            }
+        }
+        
+        appendChildren(of: nil, level: 0)
+        self.flatTodos = result
+    }
+    
+    @MainActor
+    func moveTodo(sourceId: UUID, destinationId: UUID) async {
+        guard
+            let sourceIndex = flatTodos.firstIndex(where: { $0.id == sourceId }),
+            let destinationIndex = flatTodos.firstIndex(where: { $0.id == destinationId }),
+            sourceIndex != destinationIndex
+        else { return }
+        
+        var reordered = flatTodos
+        
+        let moved = reordered.remove(at: sourceIndex)
+        reordered.insert(moved, at: destinationIndex)
+        
+        let newParentId = reordered[destinationIndex - 1].todo.id == moved.todo.id
+        ? moved.todo.parentId
+        : reordered[destinationIndex - 1].todo.id
+        
+        var updatedTodo = moved.todo
+        updatedTodo.parentId = newParentId
+        updatedTodo.order = destinationIndex
+        
+        do {
+            try await TodosApi.updateTodo(updatedTodo)
+            self.todos = try await TodosApi.getSortedTodos()
+            self.buildFlatList()
+        } catch {
+            print("Failed to update todo on move: \(error)")
         }
     }
 }
